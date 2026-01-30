@@ -34,7 +34,7 @@ export const createCategory = async (req, res) => {
 /* ================= GET ALL CATEGORIES (NO SUBCATEGORIES) ================= */
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find().sort({ createdAt: -1 });
+    const categories = await Category.find().sort({ createdAt: 1 });
     res.json(categories);
   } catch (error) {
     console.error("GET CATEGORIES ERROR:", error);
