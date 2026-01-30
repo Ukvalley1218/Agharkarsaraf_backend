@@ -90,7 +90,7 @@ export const verifyOtp = async (req, res) => {
     if (!user) {
       user = await User.create({
         email: cleanEmail,
-        isVerified: true,
+        isVerified: false,
         role: "User", // default role
       });
     }
