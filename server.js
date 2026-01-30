@@ -1,10 +1,13 @@
 import dotenv from "dotenv";
 import express from "express";
 import { connectDB } from "./config/db.js";
+import cors from "cors";
 
 dotenv.config();
 const app = express();
 app.use(express.json());
+app.use(cors());
+
 
 connectDB();
 app.get("/", (_, res) => {
@@ -22,6 +25,7 @@ app.use(
 );
 app.use("/api/products", (await import("./routes/product.routes.js")).default);
 app.use("/api/inquiry", (await import("./routes/inquiry.routes.js")).default);
+app.use("/api/banner", (await import("./routes/banner.routes.js")).default);
 
 app.listen(process.env.PORT, () =>
   console.log(`Server running on ${process.env.PORT}`)
