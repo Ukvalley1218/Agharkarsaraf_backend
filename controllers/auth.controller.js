@@ -7,38 +7,44 @@ const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString()
 
 export const register = async (req, res) => {
   try {
-    const { email, name, password } = req.body;
+    const {
+      email,
+      name,
+      mobile,
+      address,
+      shopName,
+      gstNo,
+      
+    } = req.body;
 
-    if (!email || !name || !password)
-      return res.status(400).json({ message: "All fields required" });
+    if (!email || !name || !mobile ) {
+      return res.status(400).json({ message: "Required fields missing" });
+    }
 
     const cleanEmail = email.toLowerCase().trim();
 
     const user = await User.findOne({ email: cleanEmail });
     if (!user)
-      return res.status(404).json({ message: "User not found. Verify OTP first." });
+      return res.status(404).json({ message: "User not found. Login with OTP first." });
 
-    if (!user.isVerified)
-      return res.status(403).json({ message: "Email not verified" });
-
-    // Update profile
+    // ✏️ Update profile
     user.name = name;
-    user.password = password; // ⚠️ Make sure you hash in model pre-save hook
+    user.mobile = mobile;
+    user.address = address;
+    user.shopName = shopName;
+    user.gstNo = gstNo;
+   
+
     await user.save();
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "30d" }
-    );
-
-    res.json({ message: "Registration completed", token, user });
+    res.json({ message: "Profile completed successfully", user });
 
   } catch (error) {
     console.error("REGISTER ERROR:", error);
-    res.status(500).json({ message: "Registration failed" });
+    res.status(500).json({ message: "Profile update failed" });
   }
 };
+
 
 
 export const sendOtp = async (req, res) => {
@@ -83,21 +89,27 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    // 🔍 Check if user already exists
     let user = await User.findOne({ email: cleanEmail });
 
-    // 🆕 If not, create minimal user
+    // 🆕 Create user if first time login
     if (!user) {
       user = await User.create({
         email: cleanEmail,
-        isVerified: false,
-        role: "User", // default role
+        isVerified: true,
+        role: "User"
       });
     }
 
     await Otp.deleteOne({ email: cleanEmail });
 
-    res.json({ message: "OTP verified. User created.", userId: user._id });
+    // 🔐 Direct login after OTP
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.json({ message: "Login successful", token, user });
 
   } catch (error) {
     console.error("VERIFY OTP ERROR:", error);
