@@ -2,7 +2,7 @@ import User from "../models/User.js";
 import Otp from "../models/Otp.js";
 import jwt from "jsonwebtoken";
 import { sendOtpEmail } from "../services/email.service.js";
-
+import mongoose from "mongoose";
 const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 export const register = async (req, res) => {
