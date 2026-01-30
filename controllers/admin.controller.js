@@ -11,6 +11,19 @@ export const pendingUsers = async (req, res) => {
   }
 };
 
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({
+      role: { $ne: "ADMIN" }, // exclude ADMIN users
+    });
+
+    res.status(200).json(users);
+  } catch (error) {
+    console.error("Pending Users Error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 /* VERIFY USER */
 export const verifyUser = async (req, res) => {
   try {

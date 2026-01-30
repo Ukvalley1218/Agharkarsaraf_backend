@@ -12,20 +12,36 @@ export const createSubcategory = async (req, res) => {
 };
 
 export const getSubcategories = async (req, res) => {
-  const { categoryId } = req.query;
-  const filter = {};
-  if (categoryId) filter.categoryId = categoryId;
-  res.json(await Subcategory.find(filter));
+  try {
+    const { categoryId } = req.query;
+
+    const filter = {};
+    if (categoryId) filter.categoryId = categoryId;
+
+    const subcategories = await Subcategory.find(filter).populate("categoryId"); // 👈 populate category
+
+    res.json(subcategories);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch subcategories" });
+  }
 };
 
 export const updateSubcategory = async (req, res) => {
-  res.json(await Subcategory.findByIdAndUpdate(req.params.id, req.body, { new: true }));
+  res.json(
+    await Subcategory.findByIdAndUpdate(req.params.id, req.body, { new: true })
+  );
 };
 
 export const deleteSubcategory = async (req, res) => {
   const subId = req.params.id;
   const product = await Product.findOne({ subcategoryId: subId });
-  if (product) return res.status(400).json({ message: "Cannot delete subcategory with products. Remove or reassign products first." });
+  if (product)
+    return res
+      .status(400)
+      .json({
+        message:
+          "Cannot delete subcategory with products. Remove or reassign products first.",
+      });
 
   await Subcategory.findByIdAndDelete(subId);
   res.json({ message: "Subcategory deleted" });
