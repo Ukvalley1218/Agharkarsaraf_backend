@@ -1,13 +1,14 @@
 import Category from "../models/Category.js";
 import Subcategory from "../models/Subcategory.js";
 import Product from "../models/Product.js";
-import { uploadImageBuffer } from "../services/cloudinary.service.js";
+import { uploadImageBuffer, deleteImage } from "../services/cloudinary.service.js";
+import mongoose from "mongoose";
 
+/* ================= CREATE CATEGORY ================= */
 export const createCategory = async (req, res) => {
   try {
     let imageData = {};
 
-    // if image is sent
     if (req.file) {
       const result = await uploadImageBuffer(req.file.buffer, "categories");
 
@@ -24,47 +25,95 @@ export const createCategory = async (req, res) => {
 
     res.status(201).json(category);
   } catch (error) {
-    console.error(error);
+    console.error("CREATE CATEGORY ERROR:", error);
     res.status(500).json({ message: "Failed to create category" });
   }
 };
 
-export const getCategories = async (_, res) => {
-  const categories = await Category.find();
-  const categoriesWithSubs = await Promise.all(
-    categories.map(async (cat) => {
-      const subcategories = await Subcategory.find({ categoryId: cat._id });
-      return { ...cat.toObject(), subcategories };
-    }),
-  );
-  res.json(categoriesWithSubs);
+
+/* ================= GET ALL CATEGORIES (NO SUBCATEGORIES) ================= */
+export const getCategories = async (req, res) => {
+  try {
+    const categories = await Category.find().sort({ createdAt: -1 });
+    res.json(categories);
+  } catch (error) {
+    console.error("GET CATEGORIES ERROR:", error);
+    res.status(500).json({ message: "Failed to fetch categories" });
+  }
 };
 
+
+/* ================= UPDATE CATEGORY ================= */
 export const updateCategory = async (req, res) => {
-  res.json(
-    await Category.findByIdAndUpdate(req.params.id, req.body, { new: true }),
-  );
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid category ID" });
+    }
+
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    // If new image uploaded → delete old image
+    if (req.file) {
+      if (category.imagePublicId) {
+        await deleteImage(category.imagePublicId);
+      }
+
+      const result = await uploadImageBuffer(req.file.buffer, "categories");
+
+      req.body.image = result.secure_url;
+      req.body.imagePublicId = result.public_id;
+    }
+
+    const updatedCategory = await Category.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
+
+    res.json(updatedCategory);
+  } catch (error) {
+    console.error("UPDATE CATEGORY ERROR:", error);
+    res.status(500).json({ message: "Failed to update category" });
+  }
 };
 
+
+/* ================= DELETE CATEGORY ================= */
 export const deleteCategory = async (req, res) => {
-  const id = req.params.id;
+  try {
+    const { id } = req.params;
 
-  const hasSub = await Subcategory.findOne({ categoryId: id });
-  const hasProducts = await Product.findOne({ categoryId: id });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid category ID" });
+    }
 
-  if (hasSub || hasProducts) {
-    return res.status(400).json({
-      message:
-        "Cannot delete category with subcategories or products. Remove or reassign them first.",
-    });
+    const hasSub = await Subcategory.findOne({ categoryId: id });
+    const hasProducts = await Product.findOne({ categoryId: id });
+
+    if (hasSub || hasProducts) {
+      return res.status(400).json({
+        message:
+          "Cannot delete category with subcategories or products. Remove or reassign them first.",
+      });
+    }
+
+    const category = await Category.findById(id);
+    if (!category) {
+      return res.status(404).json({ message: "Category not found" });
+    }
+
+    if (category.imagePublicId) {
+      await deleteImage(category.imagePublicId);
+    }
+
+    await Category.findByIdAndDelete(id);
+
+    res.json({ message: "Category deleted successfully" });
+  } catch (error) {
+    console.error("DELETE CATEGORY ERROR:", error);
+    res.status(500).json({ message: "Failed to delete category" });
   }
-
-  const category = await Category.findById(id);
-
-  if (category?.imagePublicId) {
-    await deleteImage(category.imagePublicId);
-  }
-
-  await Category.findByIdAndDelete(id);
-  res.json({ message: "Category deleted" });
 };
