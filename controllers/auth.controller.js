@@ -3,21 +3,15 @@ import Otp from "../models/Otp.js";
 import jwt from "jsonwebtoken";
 import { sendOtpEmail } from "../services/email.service.js";
 import mongoose from "mongoose";
-const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
 
 export const register = async (req, res) => {
   try {
-    const {
-      email,
-      name,
-      mobile,
-      address,
-      shopName,
-      gstNo,
-      
-    } = req.body;
+    const { email, name, mobile, address, shopName, gstNo, deviceTokens } =
+      req.body;
 
-    if (!email || !name || !mobile ) {
+    if (!email || !name || !mobile || !shopName) {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
@@ -25,7 +19,9 @@ export const register = async (req, res) => {
 
     const user = await User.findOne({ email: cleanEmail });
     if (!user)
-      return res.status(404).json({ message: "User not found. Login with OTP first." });
+      return res
+        .status(404)
+        .json({ message: "User not found. Login with OTP first." });
 
     // ✏️ Update profile
     user.name = name;
@@ -33,19 +29,20 @@ export const register = async (req, res) => {
     user.address = address;
     user.shopName = shopName;
     user.gstNo = gstNo;
-   
+
+    // 🔔 Save device token if provided
+    if (deviceToken) {
+      user.deviceToken = deviceToken;
+    }
 
     await user.save();
 
     res.json({ message: "Profile completed successfully", user });
-
   } catch (error) {
     console.error("REGISTER ERROR:", error);
     res.status(500).json({ message: "Profile update failed" });
   }
 };
-
-
 
 export const sendOtp = async (req, res) => {
   try {
@@ -58,26 +55,25 @@ export const sendOtp = async (req, res) => {
     await Otp.findOneAndUpdate(
       { email: cleanEmail },
       { otp, expiresAt: new Date(Date.now() + 5 * 60 * 1000) },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
 
     await sendOtpEmail(cleanEmail, otp);
 
     res.json({ message: "OTP sent successfully" });
-
   } catch (error) {
     console.error("SEND OTP ERROR:", error);
     res.status(500).json({ message: "Error sending OTP" });
   }
 };
 
-
-
 export const verifyOtp = async (req, res) => {
   try {
-    const { email, otp } = req.body;
-    if (!email || !otp)
+    const { email, otp, deviceToken } = req.body;
+
+    if (!email || !otp) {
       return res.status(400).json({ message: "Email and OTP required" });
+    }
 
     const cleanEmail = email.toLowerCase().trim();
 
@@ -91,26 +87,28 @@ export const verifyOtp = async (req, res) => {
 
     let user = await User.findOne({ email: cleanEmail });
 
-    // 🆕 Create user if first time login
+    // 🆕 Create user if first time
     if (!user) {
       user = await User.create({
         email: cleanEmail,
-     
-        role: "User"
+        role: "User",
+        deviceToken: deviceToken || null,
       });
+    } else if (deviceToken) {
+      // 🔔 Update device token on every login
+      user.deviceToken = deviceToken;
+      await user.save();
     }
 
     await Otp.deleteOne({ email: cleanEmail });
 
-    // 🔐 Direct login after OTP
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "30d" }
+      { expiresIn: "30d" },
     );
 
     res.json({ message: "Login successful", token, user });
-
   } catch (error) {
     console.error("VERIFY OTP ERROR:", error);
     res.status(500).json({ message: "OTP verification failed" });
@@ -123,9 +121,8 @@ export const getAllUsers = async (req, res) => {
 
     res.json({
       count: users.length,
-      users
+      users,
     });
-
   } catch (error) {
     console.error("GET USERS ERROR:", error);
     res.status(500).json({ message: "Failed to fetch users" });
@@ -147,7 +144,6 @@ export const getUserById = async (req, res) => {
     }
 
     res.json(user);
-
   } catch (error) {
     console.error("GET USER BY ID ERROR:", error);
     res.status(500).json({ message: "Failed to fetch user" });
