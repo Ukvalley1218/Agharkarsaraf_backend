@@ -34,7 +34,7 @@ export const createProduct = async (req, res) => {
 };
 
 export const getProducts = async (req, res) => {
-  const { categoryId, subcategoryId, minGram, maxGram } = req.query;
+  const { categoryId, subcategoryId, minGram, maxGram, search } = req.query;
 
   let filter = { isActive: true };
 
