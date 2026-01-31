@@ -161,14 +161,13 @@ export const getUserById = async (req, res) => {
 export const updateDeviceToken = async (req, res) => {
   try {
     const { deviceToken } = req.body;
+    const { id } = req.params;
 
     if (!deviceToken) {
       return res.status(400).json({ message: "Device token is required" });
     }
 
-    const userId = req.user.id; // from auth middleware
-
-    await User.findByIdAndUpdate(userId, { deviceToken }, { new: true });
+    await User.findByIdAndUpdate(id, { deviceToken }, { new: true });
 
     res.json({ message: "Device token updated successfully" });
   } catch (error) {
