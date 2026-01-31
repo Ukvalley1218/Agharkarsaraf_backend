@@ -14,6 +14,6 @@ router.get("/users/:id", getUserById);
 router.post("/register", register);
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
-router.post("/update-device-token", updateDeviceToken);
+router.post("/update-device-token/:id", updateDeviceToken);
 
 export default router;
