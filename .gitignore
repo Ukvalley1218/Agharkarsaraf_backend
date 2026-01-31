@@ -2,13 +2,13 @@
 
 # dependencies
 config/firebaseServiceAccount.json
-
+echo .env
 /node_modules
 /.pnp
 .pnp.js
 .yarn/install-state.gz
-*.env
 # testing
+
 /coverage
 
 # next.js
