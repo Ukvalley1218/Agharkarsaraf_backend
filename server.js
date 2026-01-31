@@ -26,6 +26,7 @@ app.use(
 app.use("/api/products", (await import("./routes/product.routes.js")).default);
 app.use("/api/inquiry", (await import("./routes/inquiry.routes.js")).default);
 app.use("/api/banner", (await import("./routes/banner.routes.js")).default);
+app.use("/api/notifications", (await import("./routes/notification.routes.js")).default);
 
 app.listen(process.env.PORT, () =>
   console.log(`Server running on http://localhost:${process.env.PORT}`)
