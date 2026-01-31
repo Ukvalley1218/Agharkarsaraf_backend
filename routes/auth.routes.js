@@ -6,7 +6,7 @@ import {
   sendOtp,
   verifyOtp,
 } from "../controllers/auth.controller.js";
-import { updateDeviceToken } from "../test/authController.test.js";
+import { updateDeviceToken } from "../controllers/auth.controller.js";
 
 const router = express.Router();
 router.get("/users", getAllUsers);

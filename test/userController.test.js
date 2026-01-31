@@ -1,4 +1,4 @@
-import { pendingUsers, getAllUsers, verifyUser } from "../controllers/admin.controller.js";
+import { pendingUsers, getAllUsers, verifyUser } from "../controlle";
 import User from "../models/User.js";
 
 jest.mock("../models/User.js");

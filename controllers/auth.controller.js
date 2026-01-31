@@ -8,20 +8,28 @@ const generateOtp = () =>
 
 export const register = async (req, res) => {
   try {
-    const { email, name, mobile, address, shopName, gstNo, deviceTokens } =
-      req.body;
+    const {
+      email,
+      name,
+      mobile,
+      address,
+      shopName,
+      gstNo,
+      deviceToken, // 🔔 NEW
+    } = req.body;
 
-    if (!email || !name || !mobile || !shopName) {
+    if (!email || !name || !mobile) {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
     const cleanEmail = email.toLowerCase().trim();
 
     const user = await User.findOne({ email: cleanEmail });
-    if (!user)
+    if (!user) {
       return res
         .status(404)
         .json({ message: "User not found. Login with OTP first." });
+    }
 
     // ✏️ Update profile
     user.name = name;
@@ -147,5 +155,24 @@ export const getUserById = async (req, res) => {
   } catch (error) {
     console.error("GET USER BY ID ERROR:", error);
     res.status(500).json({ message: "Failed to fetch user" });
+  }
+};
+
+export const updateDeviceToken = async (req, res) => {
+  try {
+    const { deviceToken } = req.body;
+
+    if (!deviceToken) {
+      return res.status(400).json({ message: "Device token is required" });
+    }
+
+    const userId = req.user.id; // from auth middleware
+
+    await User.findByIdAndUpdate(userId, { deviceToken }, { new: true });
+
+    res.json({ message: "Device token updated successfully" });
+  } catch (error) {
+    console.error("UPDATE DEVICE TOKEN ERROR:", error);
+    res.status(500).json({ message: "Failed to update device token" });
   }
 };

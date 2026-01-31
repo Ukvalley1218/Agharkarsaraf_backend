@@ -11,6 +11,8 @@ import Otp from "../models/Otp.js";
 import jwt from "jsonwebtoken";
 import { sendOtpEmail } from "../services/email.service.js";
 import mongoose from "mongoose";
+// import { jest } from "@jest/globals";
+
 
 jest.mock("../models/User.js");
 jest.mock("../models/Otp.js");
