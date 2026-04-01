@@ -13,11 +13,11 @@ export const pendingUsers = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const { search = "" } = req.query;
+    const { page = 1, limit = 10, search = "" } = req.query;
 
+    // Build search query
     const query = {
       role: { $ne: "ADMIN" },
-
       ...(search && {
         $or: [
           { name: { $regex: search, $options: "i" } },
@@ -26,9 +26,20 @@ export const getAllUsers = async (req, res) => {
       }),
     };
 
-    const users = await User.find(query).sort({ createdAt: -1 });
+    // Fetch users with pagination
+    const users = await User.find(query)
+      .skip((page - 1) * limit)
+      .limit(Number(limit))
+      .sort({ createdAt: -1 });
 
-    res.status(200).json(users);
+    const total = await User.countDocuments(query);
+
+    res.status(200).json({
+      data: users,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
     console.error("Get Users Error:", error);
     res.status(500).json({ message: "Server error" });
