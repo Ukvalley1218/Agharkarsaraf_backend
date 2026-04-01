@@ -13,17 +13,27 @@ export const pendingUsers = async (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({
-      role: { $ne: "ADMIN" }, // exclude ADMIN users
-    });
+    const { search = "" } = req.query;
+
+    const query = {
+      role: { $ne: "ADMIN" },
+
+      ...(search && {
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ],
+      }),
+    };
+
+    const users = await User.find(query).sort({ createdAt: -1 });
 
     res.status(200).json(users);
   } catch (error) {
-    console.error("Pending Users Error:", error);
+    console.error("Get Users Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 /* VERIFY USER */
 export const verifyUser = async (req, res) => {
   try {
