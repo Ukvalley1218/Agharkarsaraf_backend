@@ -34,15 +34,33 @@ export const createProduct = async (req, res) => {
 };
 
 export const getProducts = async (req, res) => {
-  const { categoryId, subcategoryId, minGram, maxGram, search, grossWeight } = req.query;
+  const { categoryId, subcategoryId, minGram, maxGram, search, grossWeight, netWeight, name, weight } = req.query;
 
   let filter = { isActive: true };
 
   if (categoryId) filter.categoryId = categoryId;
   if (subcategoryId) filter.subcategoryId = subcategoryId;
 
-  // Search in name, narration, and grossWeight (as string)
-  if (search) {
+  // Combined search: name + weight (e.g., "Ranihar 20gm")
+  if (name && weight) {
+    const weightValue = parseFloat(weight);
+    filter.$and = [
+      {
+        $or: [
+          { name: { $regex: name, $options: "i" } },
+          { narration: { $regex: name, $options: "i" } },
+        ],
+      },
+      {
+        $or: [
+          { grossWeight: weightValue },
+          { netWeight: weightValue },
+        ],
+      },
+    ];
+  }
+  // Search by name/narration only
+  else if (search) {
     filter.$or = [
       { name: { $regex: search, $options: "i" } },
       { narration: { $regex: search, $options: "i" } },
@@ -52,6 +70,11 @@ export const getProducts = async (req, res) => {
   // Exact grossWeight filter
   if (grossWeight) {
     filter.grossWeight = parseFloat(grossWeight);
+  }
+
+  // Exact netWeight filter
+  if (netWeight) {
+    filter.netWeight = parseFloat(netWeight);
   }
 
   if (minGram || maxGram)
