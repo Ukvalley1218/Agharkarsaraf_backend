@@ -41,6 +41,21 @@ export const getProducts = async (req, res) => {
   if (categoryId) filter.categoryId = categoryId;
   if (subcategoryId) filter.subcategoryId = subcategoryId;
 
+  // Helper function to calculate weight range for partial matching
+  const calculateWeightRange = (weightStr) => {
+    const weightNum = parseFloat(weightStr);
+    const decimalPlaces = weightStr.includes('.') ? weightStr.split('.')[1].length : 0;
+
+    // Range: from weightNum to weightNum + next increment
+    // "3" → 3 to 4 (matches 3, 3.1, 3.5, etc.)
+    // "30" → 30 to 31 (matches 30, 30.1, 30.56, etc.)
+    // "30.5" → 30.5 to 30.6 (matches 30.5, 30.56, etc.)
+    const minWeight = weightNum;
+    const maxWeight = decimalPlaces === 0 ? weightNum + 1 : weightNum + Math.pow(10, -decimalPlaces);
+
+    return { minWeight, maxWeight };
+  };
+
   // Combined search: name + weight (exact match e.g., "Ranihar 20gm")
   if (name && weight) {
     const weightValue = parseFloat(weight);
@@ -59,20 +74,9 @@ export const getProducts = async (req, res) => {
       },
     ];
   }
-  // Combined search: name + weightStart (partial weight match e.g., "Longpoth 30" -> weights 30, 30.1, 30.56, etc.)
+  // Combined search: name + weightStart (partial weight match)
   else if (name && weightStart) {
-    const weightNum = parseFloat(weightStart);
-    // Calculate decimal places for precision
-    const weightStr = weightStart.toString();
-    const decimalPlaces = weightStr.includes('.') ? weightStr.split('.')[1].length : 0;
-    const increment = Math.pow(10, -decimalPlaces - 1); // For "30" → 0.1, for "30.5" → 0.01
-
-    // Range: from weightNum to weightNum + next increment
-    // "3" → 3 to 4 (matches 3, 3.1, 3.5, etc.)
-    // "30" → 30 to 31 (matches 30, 30.1, 30.56, etc.)
-    // "30.5" → 30.5 to 30.6 (matches 30.5, 30.56, etc.)
-    const minWeight = weightNum;
-    const maxWeight = decimalPlaces === 0 ? weightNum + 1 : weightNum + Math.pow(10, -decimalPlaces);
+    const { minWeight, maxWeight } = calculateWeightRange(weightStart);
 
     filter.$and = [
       {
@@ -89,6 +93,15 @@ export const getProducts = async (req, res) => {
       },
     ];
   }
+  // Weight-only search (partial match) - e.g., "30" without product name
+  else if (weightStart && !name) {
+    const { minWeight, maxWeight } = calculateWeightRange(weightStart);
+
+    filter.$or = [
+      { grossWeight: { $gte: minWeight, $lt: maxWeight } },
+      { netWeight: { $gte: minWeight, $lt: maxWeight } },
+    ];
+  }
   // Search by name/narration only
   else if (search) {
     filter.$or = [
@@ -97,13 +110,13 @@ export const getProducts = async (req, res) => {
     ];
   }
 
-  // Exact grossWeight filter
-  if (grossWeight) {
+  // Exact grossWeight filter (for backward compatibility)
+  if (grossWeight && !weightStart) {
     filter.grossWeight = parseFloat(grossWeight);
   }
 
-  // Exact netWeight filter
-  if (netWeight) {
+  // Exact netWeight filter (for backward compatibility)
+  if (netWeight && !weightStart) {
     filter.netWeight = parseFloat(netWeight);
   }
 
