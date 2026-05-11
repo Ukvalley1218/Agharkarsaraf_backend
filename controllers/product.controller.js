@@ -34,14 +34,14 @@ export const createProduct = async (req, res) => {
 };
 
 export const getProducts = async (req, res) => {
-  const { categoryId, subcategoryId, minGram, maxGram, search, grossWeight, netWeight, name, weight } = req.query;
+  const { categoryId, subcategoryId, minGram, maxGram, search, grossWeight, netWeight, name, weight, weightStart } = req.query;
 
   let filter = { isActive: true };
 
   if (categoryId) filter.categoryId = categoryId;
   if (subcategoryId) filter.subcategoryId = subcategoryId;
 
-  // Combined search: name + weight (e.g., "Ranihar 20gm")
+  // Combined search: name + weight (exact match e.g., "Ranihar 20gm")
   if (name && weight) {
     const weightValue = parseFloat(weight);
     filter.$and = [
@@ -55,6 +55,36 @@ export const getProducts = async (req, res) => {
         $or: [
           { grossWeight: weightValue },
           { netWeight: weightValue },
+        ],
+      },
+    ];
+  }
+  // Combined search: name + weightStart (partial weight match e.g., "Longpoth 30" -> weights 30, 30.1, 30.56, etc.)
+  else if (name && weightStart) {
+    const weightNum = parseFloat(weightStart);
+    // Calculate decimal places for precision
+    const weightStr = weightStart.toString();
+    const decimalPlaces = weightStr.includes('.') ? weightStr.split('.')[1].length : 0;
+    const increment = Math.pow(10, -decimalPlaces - 1); // For "30" → 0.1, for "30.5" → 0.01
+
+    // Range: from weightNum to weightNum + next increment
+    // "3" → 3 to 4 (matches 3, 3.1, 3.5, etc.)
+    // "30" → 30 to 31 (matches 30, 30.1, 30.56, etc.)
+    // "30.5" → 30.5 to 30.6 (matches 30.5, 30.56, etc.)
+    const minWeight = weightNum;
+    const maxWeight = decimalPlaces === 0 ? weightNum + 1 : weightNum + Math.pow(10, -decimalPlaces);
+
+    filter.$and = [
+      {
+        $or: [
+          { name: { $regex: name, $options: "i" } },
+          { narration: { $regex: name, $options: "i" } },
+        ],
+      },
+      {
+        $or: [
+          { grossWeight: { $gte: minWeight, $lt: maxWeight } },
+          { netWeight: { $gte: minWeight, $lt: maxWeight } },
         ],
       },
     ];
