@@ -1,19 +1,36 @@
 import express from "express";
 import {
-  getAllUsers,
-  getUserById,
-  register,
   sendOtp,
   verifyOtp,
+  completeProfile,
+  resendOtp,
+  getAllUsers,
+  getUserById,
+  updateDeviceToken,
+  getProfile,
+  logout,
+  Admin_sendOtp,
+  Admin_verifyOtp,
 } from "../controllers/auth.controller.js";
-import { updateDeviceToken } from "../controllers/auth.controller.js";
+import { protect, authorize } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
-router.get("/users", getAllUsers);
-router.get("/users/:id", getUserById);
-router.post("/register", register);
+
+// Public routes (no authentication required)
 router.post("/send-otp", sendOtp);
+router.post("/admin-send-otp", Admin_sendOtp);
 router.post("/verify-otp", verifyOtp);
-router.post("/update-device-token/:id", updateDeviceToken);
+router.post("/admin-verify-otp", Admin_verifyOtp);
+router.post("/resend-otp", resendOtp);
+
+// Protected routes (authentication required)
+router.get("/me", protect, getProfile);
+router.post("/complete-profile", protect, completeProfile);
+router.post("/logout", protect, logout);
+router.post("/update-device-token/:id", protect, updateDeviceToken);
+
+// Admin routes (authentication + admin role required)
+router.get("/users", protect, authorize("Admin"), getAllUsers);
+router.get("/users/:id", protect, getUserById);
 
 export default router;
