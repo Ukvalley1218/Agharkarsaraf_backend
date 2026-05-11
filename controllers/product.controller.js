@@ -34,13 +34,25 @@ export const createProduct = async (req, res) => {
 };
 
 export const getProducts = async (req, res) => {
-  const { categoryId, subcategoryId, minGram, maxGram, search } = req.query;
+  const { categoryId, subcategoryId, minGram, maxGram, search, grossWeight } = req.query;
 
   let filter = { isActive: true };
 
   if (categoryId) filter.categoryId = categoryId;
   if (subcategoryId) filter.subcategoryId = subcategoryId;
-  if (search) filter.name = { $regex: search, $options: "i" };
+
+  // Search in name, narration, and grossWeight (as string)
+  if (search) {
+    filter.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { narration: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  // Exact grossWeight filter
+  if (grossWeight) {
+    filter.grossWeight = parseFloat(grossWeight);
+  }
 
   if (minGram || maxGram)
     filter.grams = { $gte: +minGram || 0, $lte: +maxGram || 9999 };
