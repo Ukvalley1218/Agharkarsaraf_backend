@@ -28,27 +28,36 @@ export const sendOtp = async (req, res) => {
   try {
     const { mobile, email } = req.body;
 
-    if (!mobile || !email) {
+    if (!mobile && !email) {
       return res.status(400).json({
         success: false,
-        message: "Mobile number / email are required",
+        message: "Mobile number or email is required",
       });
     }
 
-    const formattedMobile = formatMobile(mobile);
+    let formattedMobile = null;
 
-    // Validate mobile number (10 digits for India)
-    if (formattedMobile.length !== 10) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Invalid mobile number. Please enter a valid 10-digit mobile number",
-      });
+    // Validate and format mobile if provided
+    if (mobile) {
+      formattedMobile = formatMobile(mobile);
+
+      // Validate mobile number (10 digits for India)
+      if (formattedMobile.length !== 10) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid mobile number. Please enter a valid 10-digit mobile number",
+        });
+      }
     }
 
-    // Check for rate limiting - max 3 OTPs per number in 10 minutes
+    // Check for rate limiting - max 3 OTPs per number/email in 10 minutes
+    const rateLimitQuery = mobile
+      ? { mobile: formattedMobile }
+      : { email: email.toLowerCase().trim() };
+
     const recentOtps = await Otp.countDocuments({
-      mobile: formattedMobile,
+      ...rateLimitQuery,
       createdAt: { $gt: new Date(Date.now() - 10 * 60 * 1000) },
     });
 
@@ -63,15 +72,23 @@ export const sendOtp = async (req, res) => {
     const otp = generateOtp();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
 
-    // Delete any existing OTP for this mobile
-    await Otp.deleteMany({ mobile: formattedMobile });
+    // Delete any existing OTP for this mobile/email
+    await Otp.deleteMany(rateLimitQuery);
 
     // Save new OTP
-    await Otp.create({
-      mobile: formattedMobile,
+    const otpData = {
       otp,
       expiresAt,
-    });
+    };
+
+    if (formattedMobile) {
+      otpData.mobile = formattedMobile;
+    }
+    if (email) {
+      otpData.email = email.toLowerCase().trim();
+    }
+
+    await Otp.create(otpData);
 
     // Send OTP via BestSMS
     try {
