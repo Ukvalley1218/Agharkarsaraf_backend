@@ -34,13 +34,91 @@ export const createProduct = async (req, res) => {
 };
 
 export const getProducts = async (req, res) => {
-  const { categoryId, subcategoryId, minGram, maxGram, search } = req.query;
+  const { categoryId, subcategoryId, minGram, maxGram, search, grossWeight, netWeight, name, weight, weightStart } = req.query;
 
   let filter = { isActive: true };
 
   if (categoryId) filter.categoryId = categoryId;
   if (subcategoryId) filter.subcategoryId = subcategoryId;
-  if (search) filter.name = { $regex: search, $options: "i" };
+
+  // Helper function to calculate weight range for partial matching
+  const calculateWeightRange = (weightStr) => {
+    const weightNum = parseFloat(weightStr);
+    const decimalPlaces = weightStr.includes('.') ? weightStr.split('.')[1].length : 0;
+
+    // Range: from weightNum to weightNum + next increment
+    // "3" → 3 to 4 (matches 3, 3.1, 3.5, etc.)
+    // "30" → 30 to 31 (matches 30, 30.1, 30.56, etc.)
+    // "30.5" → 30.5 to 30.6 (matches 30.5, 30.56, etc.)
+    const minWeight = weightNum;
+    const maxWeight = decimalPlaces === 0 ? weightNum + 1 : weightNum + Math.pow(10, -decimalPlaces);
+
+    return { minWeight, maxWeight };
+  };
+
+  // Combined search: name + weight (exact match e.g., "Ranihar 20gm")
+  if (name && weight) {
+    const weightValue = parseFloat(weight);
+    filter.$and = [
+      {
+        $or: [
+          { name: { $regex: name, $options: "i" } },
+          { narration: { $regex: name, $options: "i" } },
+        ],
+      },
+      {
+        $or: [
+          { grossWeight: weightValue },
+          { netWeight: weightValue },
+        ],
+      },
+    ];
+  }
+  // Combined search: name + weightStart (partial weight match)
+  else if (name && weightStart) {
+    const { minWeight, maxWeight } = calculateWeightRange(weightStart);
+
+    filter.$and = [
+      {
+        $or: [
+          { name: { $regex: name, $options: "i" } },
+          { narration: { $regex: name, $options: "i" } },
+        ],
+      },
+      {
+        $or: [
+          { grossWeight: { $gte: minWeight, $lt: maxWeight } },
+          { netWeight: { $gte: minWeight, $lt: maxWeight } },
+        ],
+      },
+    ];
+  }
+  // Weight-only search (partial match) - e.g., "30" without product name
+  else if (weightStart && !name) {
+    const { minWeight, maxWeight } = calculateWeightRange(weightStart);
+
+    filter.$or = [
+      { grossWeight: { $gte: minWeight, $lt: maxWeight } },
+      { netWeight: { $gte: minWeight, $lt: maxWeight } },
+    ];
+  }
+  // Search by name/narration only
+  else if (search) {
+    filter.$or = [
+      { name: { $regex: search, $options: "i" } },
+      { narration: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  // Exact grossWeight filter (for backward compatibility)
+  if (grossWeight && !weightStart) {
+    filter.grossWeight = parseFloat(grossWeight);
+  }
+
+  // Exact netWeight filter (for backward compatibility)
+  if (netWeight && !weightStart) {
+    filter.netWeight = parseFloat(netWeight);
+  }
 
   if (minGram || maxGram)
     filter.grams = { $gte: +minGram || 0, $lte: +maxGram || 9999 };
