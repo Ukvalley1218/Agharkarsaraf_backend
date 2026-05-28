@@ -9,6 +9,7 @@ import {
   updateDeviceToken,
   getProfile,
   logout,
+  verifyToken,
   Admin_sendOtp,
   Admin_verifyOtp,
 } from "../controllers/auth.controller.js";
@@ -22,6 +23,7 @@ router.post("/admin-send-otp", Admin_sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.post("/admin-verify-otp", Admin_verifyOtp);
 router.post("/resend-otp", resendOtp);
+router.post("/verify-token", verifyToken);
 
 // Protected routes (authentication required)
 router.get("/me", protect, getProfile);

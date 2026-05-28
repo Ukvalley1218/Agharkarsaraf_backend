@@ -27,11 +27,11 @@ const formatMobile = (mobile) => {
 export const sendOtp = async (req, res) => {
   try {
     const { mobile, email } = req.body;
-
-    if (!mobile || !email) {
+    console.log("SEND OTP REQUEST:", { mobile, email });
+    if (!mobile) {
       return res.status(400).json({
         success: false,
-        message: "Mobile number / email are required",
+        message: "Mobile number is required",
       });
     }
 
@@ -563,6 +563,137 @@ export const logout = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Logout failed",
+    });
+  }
+};
+
+/**
+ * Verify JWT token (for app startup validation)
+ * POST /api/auth/verify-token
+ * Body: { token }
+ * Auto-renews expired tokens if user still exists
+ */
+export const verifyToken = async (req, res) => {
+  try {
+    const { token, deviceToken } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        isValid: false,
+        message: "Token is required",
+      });
+    }
+
+    try {
+      // Verify the token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // Get user from token
+      const user = await User.findById(decoded.id).select("-deviceToken");
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          isValid: false,
+          message: "User not found",
+        });
+      }
+
+      // Update device token if provided
+      if (deviceToken) {
+        await User.findByIdAndUpdate(decoded.id, { deviceToken });
+      }
+
+      res.json({
+        success: true,
+        isValid: true,
+        tokenRenewed: false,
+        user: {
+          id: user._id,
+          name: user.name,
+          mobile: user.mobile,
+          email: user.email,
+          role: user.role,
+          isProfileComplete: user.isProfileComplete,
+        },
+      });
+    } catch (jwtError) {
+      // Token is expired - try to auto-renew
+      if (jwtError.name === "TokenExpiredError") {
+        try {
+          // Decode expired token without verification to get user ID
+          const decoded = jwt.decode(token);
+
+          if (!decoded || !decoded.id) {
+            return res.status(401).json({
+              success: false,
+              isValid: false,
+              message: "Invalid token format",
+            });
+          }
+
+          // Check if user still exists
+          const user = await User.findById(decoded.id).select("-deviceToken");
+
+          if (!user) {
+            return res.status(401).json({
+              success: false,
+              isValid: false,
+              message: "User not found",
+            });
+          }
+
+          // Generate new token
+          const newToken = jwt.sign(
+            { id: user._id, role: user.role, mobile: user.mobile },
+            process.env.JWT_SECRET,
+            { expiresIn: "30d" }
+          );
+
+          // Update device token if provided
+          if (deviceToken) {
+            await User.findByIdAndUpdate(user._id, { deviceToken, lastLogin: new Date() });
+          } else {
+            await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
+          }
+
+          res.json({
+            success: true,
+            isValid: true,
+            tokenRenewed: true,
+            token: newToken,
+            user: {
+              id: user._id,
+              name: user.name,
+              mobile: user.mobile,
+              email: user.email,
+              role: user.role,
+              isProfileComplete: user.isProfileComplete,
+            },
+          });
+        } catch (renewError) {
+          console.error("TOKEN RENEW ERROR:", renewError);
+          return res.status(401).json({
+            success: false,
+            isValid: false,
+            message: "Failed to renew token. Please login again.",
+          });
+        }
+      } else {
+        return res.status(401).json({
+          success: false,
+          isValid: false,
+          message: "Invalid token. Please login again.",
+        });
+      }
+    }
+  } catch (error) {
+    console.error("VERIFY TOKEN ERROR:", error);
+    res.status(500).json({
+      success: false,
+      isValid: false,
+      message: "Token verification failed",
     });
   }
 };
